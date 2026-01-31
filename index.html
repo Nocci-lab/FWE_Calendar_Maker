@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Teacher Annual Schedule 2026–2027</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<style>
+body{
+  font-family: Arial,"Hiragino Maru Gothic ProN",sans-serif;
+  background:#F3FBEE;
+  padding:20px;
+}
+
+button{
+  background:#2E6B2E;
+  color:white;
+  border:none;
+  padding:6px 16px;
+  border-radius:6px;
+  cursor:pointer;
+  margin-bottom:14px;
+}
+
+.header-box{
+  border:2px solid #2E6B2E;
+  padding:12px;
+  border-radius:10px;
+  background:white;
+  margin-bottom:20px;
+}
+
+.month{
+  margin-bottom:42px;
+  page-break-inside:avoid;
+}
+
+.month-title{
+  font-size:30px;
+  font-weight:bold;
+  background:#8BCF5A;
+  color:white;
+  padding:10px 16px;
+  border-radius:12px;
+  margin-bottom:10px;
+}
+
+.calendar{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:3px;
+}
+
+.weekday{
+  text-align:center;
+  font-weight:bold;
+  padding:6px;
+  background:#d7efc8;
+}
+
+.day{
+  border:1px solid #bbb;
+  min-height:120px;
+  padding:6px;
+  background:white;
+  cursor:pointer;
+}
+
+/* 曜日別カラー */
+.day.sun.selected{background:#2E7D32;color:white;}
+.day.mon.selected{background:#7CB342;}
+.day.tue.selected{background:#C0CA33;}
+.day.wed.selected{background:#FBC02D;}
+.day.thu.selected{background:#FB8C00;}
+.day.fri.selected{background:#F57C00;}
+.day.sat.selected{background:#E64A19;color:white;}
+
+.holiday{
+  font-size:11px;
+  font-weight:bold;
+  color:#d32f2f;
+  margin-top:4px;
+  line-height:1.2;
+}
+
+.break{
+  font-size:10px;
+  color:#666;
+}
+
+.summary{
+  font-size:16px;
+  font-weight:bold;
+  margin-top:14px;
+}
+</style>
+</head>
+
+<body>
+
+<button onclick="savePDF()">Save as PDF</button>
+
+<div class="header-box" id="headerBox">
+  <strong>School:</strong>
+  <input id="school" style="width:260px;margin-right:30px;">
+  <strong>Teacher:</strong>
+  <input id="teacher" style="width:200px;">
+</div>
+
+<div id="content"></div>
+<div class="summary" id="summary"></div>
+
+<script>
+const weekdays=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const counts={Sun:0,Mon:0,Tue:0,Wed:0,Thu:0,Fri:0,Sat:0};
+
+const monthNames={
+  1:"JANUARY",2:"FEBRUARY",3:"MARCH",
+  4:"APRIL",5:"MAY",6:"JUNE",
+  7:"JULY",8:"AUGUST",9:"SEPTEMBER",
+  10:"OCTOBER",11:"NOVEMBER",12:"DECEMBER"
+};
+
+const monthIcons={
+  1:"❄️",2:"❄️",3:"🌷",
+  4:"🌸",5:"🎏",6:"☔",
+  7:"🌻",8:"🍉",9:"🍁",
+  10:"🎃",11:"🍂",12:"🎄"
+};
+
+/* 祝日・連休（確定版） */
+const holidays={
+  "2026-01-01":{name:"New Year’s Day"},
+  "2026-01-12":{name:"Coming of Age Day"},
+  "2026-02-11":{name:"National Foundation Day"},
+  "2026-02-23":{name:"Emperor’s Birthday"},
+  "2026-03-20":{name:"Vernal Equinox Day"},
+
+  "2026-04-29":{name:"Showa Day"},
+
+  "2026-05-03":{name:"Constitution Memorial Day",break:"Golden Week"},
+  "2026-05-04":{name:"Greenery Day",break:"Golden Week"},
+  "2026-05-05":{name:"Children’s Day",break:"Golden Week"},
+  "2026-05-06":{name:"Substitute Holiday",break:"Golden Week"},
+
+  "2026-07-20":{name:"Marine Day"},
+  "2026-08-11":{name:"Mountain Day"},
+
+  "2026-08-13":{name:"Obon",break:"Obon"},
+  "2026-08-14":{name:"Obon",break:"Obon"},
+  "2026-08-15":{name:"Obon",break:"Obon"},
+  "2026-08-16":{name:"Obon",break:"Obon"},
+
+  "2026-09-21":{name:"Respect for the Aged Day",break:"Silver Week"},
+  "2026-09-22":{name:"Citizen’s Holiday",break:"Silver Week"},
+  "2026-09-23":{name:"Autumnal Equinox Day",break:"Silver Week"},
+
+  "2026-10-12":{name:"Sports Day"},
+  "2026-11-03":{name:"Culture Day"},
+  "2026-11-23":{name:"Labor Thanksgiving Day"},
+
+  "2027-01-01":{name:"New Year’s Day"},
+  "2027-01-12":{name:"Coming of Age Day"},
+  "2027-02-11":{name:"National Foundation Day"},
+  "2027-02-23":{name:"Emperor’s Birthday"},
+  "2027-03-20":{name:"Vernal Equinox Day"}
+};
+
+function updateSummary(){
+  summary.textContent=
+    `Sun:${counts.Sun}  Mon:${counts.Mon}  Tue:${counts.Tue}  Wed:${counts.Wed}  Thu:${counts.Thu}  Fri:${counts.Fri}  Sat:${counts.Sat}`;
+}
+
+function createMonth(y,m){
+  const div=document.createElement("div");
+  div.className="month";
+  div.innerHTML=`
+    <div class="month-title">${y}年 ${m+1}月 / ${monthNames[m+1]} ${monthIcons[m+1]}</div>
+    <div class="calendar"></div>
+  `;
+  const cal=div.querySelector(".calendar");
+
+  weekdays.forEach(w=>{
+    const d=document.createElement("div");
+    d.className="weekday";
+    d.textContent=w;
+    cal.appendChild(d);
+  });
+
+  const first=new Date(y,m,1).getDay();
+  const last=new Date(y,m+1,0).getDate();
+  for(let i=0;i<first;i++) cal.appendChild(document.createElement("div"));
+
+  for(let d=1;d<=last;d++){
+    const date=new Date(y,m,d);
+    const w=weekdays[date.getDay()];
+
+    const key =
+      date.getFullYear()+"-"+
+      String(date.getMonth()+1).padStart(2,"0")+"-"+
+      String(date.getDate()).padStart(2,"0");
+
+    const cell=document.createElement("div");
+    cell.className=`day ${w.toLowerCase()}`;
+    cell.innerHTML=`<strong>${d}</strong>`;
+
+    if(holidays[key]){
+      cell.innerHTML+=`<div class="holiday">${holidays[key].name}</div>`;
+      if(holidays[key].break){
+        cell.innerHTML+=`<div class="break">${holidays[key].break}</div>`;
+      }
+    }
+
+    cell.onclick=()=>{
+      if(cell.classList.contains("selected")){
+        cell.classList.remove("selected");
+        counts[w]--;
+      }else{
+        cell.classList.add("selected");
+        counts[w]++;
+      }
+      updateSummary();
+    };
+
+    cal.appendChild(cell);
+  }
+  content.appendChild(div);
+}
+
+for(let m=3;m<12;m++) createMonth(2026,m);
+for(let m=0;m<3;m++) createMonth(2027,m);
+
+updateSummary();
+
+function savePDF(){
+  html2pdf().set({
+    margin:6,
+    filename:'Teacher_Annual_Schedule_2026.pdf',
+    html2canvas:{scale:2},
+    jsPDF:{format:'a4'}
+  }).from(document.body).save();
+}
+</script>
+
+</body>
+</html>
